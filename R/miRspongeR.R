@@ -575,616 +575,620 @@ mcode <- function(graph, vwp=0.5, haircut=FALSE, fluff=FALSE, fdt=0.8, loops=TRU
 
 ## 1. miRHomology
 miRHomology <- function(miRTarget, minSharedmiR = 3, padjustvaluecutoff = 0.01, padjustmethod = "BH") {
-
+  
     miRTarget <- as.matrix(miRTarget)
-
+  
     m1 <- nrow(miRTarget)
     n1 <- ncol(miRTarget)
-
+  
     miR <- miRTarget[, 1]
     tar <- miRTarget[, 2]
-
+  
     miRSym <- unique(miR)
     targetSym <- unique(tar)
-
+  
     m2 <- length(targetSym)
-
+  
     # Initialize variables
     ceRInt <- matrix(NA, m2 * (m2 - 1)/2, 2)
     C <- matrix(NA, m2 * (m2 - 1)/2, 2)
-
+  
     for (i in seq_len(m2 - 1)) {
-        for (j in seq(i + 1, m2)) {
-
-            Interin1 <- miRTarget[which(miRTarget[, 2] %in% targetSym[i]), 1]
-            Interin2 <- miRTarget[which(miRTarget[, 2] %in% targetSym[j]), 1]
-
-            M1 <- length(Interin1)
-            M2 <- length(Interin2)
-            M3 <- length(intersect(Interin1, Interin2))
-            M4 <- length(miRSym)
-            M5 <- 1 - phyper(M3 - 1, M2, M4 - M2, M1)
-
-            if (M3 >= minSharedmiR & M5 < padjustvaluecutoff) {
-
-                ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- targetSym[i]
-                ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- targetSym[j]
-
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- M3
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- M5
-
-            }
-
+      for (j in seq(i + 1, m2)) {
+      
+        Interin1 <- miRTarget[which(miRTarget[, 2] %in% targetSym[i]), 1]
+        Interin2 <- miRTarget[which(miRTarget[, 2] %in% targetSym[j]), 1]
+      
+        M1 <- length(Interin1)
+        M2 <- length(Interin2)
+        M3 <- length(intersect(Interin1, Interin2))
+        M4 <- length(miRSym)
+        M5 <- 1 - phyper(M3 - 1, M2, M4 - M2, M1)
+      
+        if (M3 >= minSharedmiR & M5 < padjustvaluecutoff) {
+        
+          ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- targetSym[i]
+          ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- targetSym[j]
+        
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- M3
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- M5
+        
         }
+      
+      }
     }
-
+  
     # Extract RNA-RNA pair based on the homology of sharing miRNAs
-    ceRInt <- ceRInt[which((p.adjust(C[, 2], method = padjustmethod) < padjustvaluecutoff) == "TRUE"), ]
-
-    C <- C[which((p.adjust(C[, 2], method = padjustmethod) < padjustvaluecutoff) == "TRUE"), ]
-
+    C[, 2] <- p.adjust(C[, 2], method = padjustmethod)
+    index <- which(C[, 2] < padjustvaluecutoff)
+  
+    ceRInt <- ceRInt[index, ]
+    C <- C[index, ]
+  
     if (is.vector(C)) {
-        miRHomologyceRInt <- c(ceRInt, C)
-        names(miRHomologyceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs")
+      miRHomologyceRInt <- c(ceRInt, C)
+      names(miRHomologyceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs")
     } else {
-        miRHomologyceRInt <- cbind(ceRInt, C)
-        colnames(miRHomologyceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs")
+      miRHomologyceRInt <- cbind(ceRInt, C)
+      colnames(miRHomologyceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs")
     }
-
+  
     return(miRHomologyceRInt)
 }
 
 ## 2. Positive Correlation (PC) method
 pc <- function(miRTarget, ExpData, minSharedmiR = 3, poscorcutoff = 0, padjustvaluecutoff = 0.01,
-    padjustmethod = "BH") {
-
+               padjustmethod = "BH") {
+  
     miRTargetCandidate <- querymiRTargetbinding(ExpData, miRTarget)
     miRTargetCandidate <- as.matrix(miRTargetCandidate)
     m1 <- nrow(miRTargetCandidate)
     n1 <- ncol(miRTargetCandidate)
-
+  
     ExpDataNames <- c(as.matrix(ExpData[1, ]))
     ExpData <- unfactor(ExpData[-1, ])    
     colnames(ExpData) <- ExpDataNames
-
+  
     miR <- miRTargetCandidate[, 1]
     tar <- miRTargetCandidate[, 2]
-
+  
     miRSym <- unique(miR)
     targetSym <- unique(tar)
-
+  
     m2 <- length(targetSym)
-
+  
     # Initialize variables
     ceRInt <- matrix(NA, m2 * (m2 - 1)/2, 2)
     C <- matrix(NA, m2 * (m2 - 1)/2, 4)
-
+  
     for (i in seq_len(m2 - 1)) {
-        for (j in seq(i + 1, m2)) {
-
-            Interin1 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[i]), 1]
-            Interin2 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[j]), 1]
-
-            M1 <- length(Interin1)
-            M2 <- length(Interin2)
-            M3 <- length(intersect(Interin1, Interin2))
-            M4 <- length(miRSym)
-            M5 <- 1 - phyper(M3 - 1, M2, M4 - M2, M1)
-
-            if (M3 >= minSharedmiR & M5 < padjustvaluecutoff) {
-
-                ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- targetSym[i]
-                ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- targetSym[j]
-
-                tarExpIdx1 <- which(ExpDataNames %in% targetSym[i])
-                tarExpIdx2 <- which(ExpDataNames %in% targetSym[j])
-
-                # Calculate Pearson correlation of each RNA-RNA pair
-                M6 <- cor.test(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2])$estimate
-                M7 <- cor.test(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2])$p.value
-
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- M3
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- M5
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 3] <- M6
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 4] <- M7
-            }
+      for (j in seq(i + 1, m2)) {
+      
+        Interin1 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[i]), 1]
+        Interin2 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[j]), 1]
+      
+        M1 <- length(Interin1)
+        M2 <- length(Interin2)
+        M3 <- length(intersect(Interin1, Interin2))
+        M4 <- length(miRSym)
+        M5 <- 1 - phyper(M3 - 1, M2, M4 - M2, M1)
+      
+        if (M3 >= minSharedmiR & M5 < padjustvaluecutoff) {
+        
+          ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- targetSym[i]
+          ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- targetSym[j]
+        
+          tarExpIdx1 <- which(ExpDataNames %in% targetSym[i])
+          tarExpIdx2 <- which(ExpDataNames %in% targetSym[j])
+        
+          # Calculate Pearson correlation of each RNA-RNA pair
+          M6 <- cor.test(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2])$estimate
+          M7 <- cor.test(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2])$p.value
+        
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- M3
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- M5
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 3] <- M6
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 4] <- M7
         }
+      }
     }
-
+  
     # Extract positive correlated RNA-RNA pairs.
-    ceRInt <- ceRInt[which((p.adjust(C[, 2], method = padjustmethod) < padjustvaluecutoff & C[,
-        3] > poscorcutoff & p.adjust(C[, 4], method = padjustmethod) < padjustvaluecutoff) == "TRUE"),
-        ]
-
-    C <- C[which((p.adjust(C[, 2], method = padjustmethod) < padjustvaluecutoff & C[, 3] > poscorcutoff &
-        p.adjust(C[, 4], method = padjustmethod) < padjustvaluecutoff) == "TRUE"), ]
-
+    C[, 2] <- p.adjust(C[, 2], method = padjustmethod)
+    C[, 4] <- p.adjust(C[, 4], method = padjustmethod)
+    index <- which(C[, 2] < padjustvaluecutoff & C[, 3] > poscorcutoff & C[, 4] < padjustvaluecutoff)
+  
+    ceRInt <- ceRInt[index, ]
+    C <- C[index, ]
+  
     if (is.vector(C)) {
-        PCceRInt <- c(ceRInt, C)
-        names(PCceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
-            "correlation", "p.adjusted_value of positive correlation")
+      PCceRInt <- c(ceRInt, C)
+      names(PCceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
+                           "correlation", "p.adjusted_value of positive correlation")
     } else {
-        PCceRInt <- cbind(ceRInt, C)
-        colnames(PCceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
-            "correlation", "p.adjusted_value of positive correlation")
+      PCceRInt <- cbind(ceRInt, C)
+      colnames(PCceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
+                              "correlation", "p.adjusted_value of positive correlation")
     }
-
+  
     return(PCceRInt)
 }
 
 ## 3. Sensitivity Partial Pearson Correlation (SPPC) method
 sppc <- function(miRTarget, ExpData, minSharedmiR = 3, poscorcutoff = 0, padjustvaluecutoff = 0.01,
-    padjustmethod = "BH", senscorcutoff = 0.3) {
-
+                 padjustmethod = "BH", senscorcutoff = 0.3) {
+  
     miRTargetCandidate <- querymiRTargetbinding(ExpData, miRTarget)
     miRTargetCandidate <- as.matrix(miRTargetCandidate)
     m1 <- nrow(miRTargetCandidate)
     n1 <- ncol(miRTargetCandidate)
-
+  
     ExpDataNames <- c(as.matrix(ExpData[1, ]))
     ExpData <- unfactor(ExpData[-1, ])
     colnames(ExpData) <- ExpDataNames
-
+  
     miR <- miRTargetCandidate[, 1]
     tar <- miRTargetCandidate[, 2]
-
+  
     miRSym <- unique(miR)
     targetSym <- unique(tar)
-
+  
     m2 <- length(targetSym)
-
+  
     # Initialize variables
     ceRInt <- matrix(NA, m2 * (m2 - 1)/2, 2)
     C <- matrix(NA, m2 * (m2 - 1)/2, 5)
-
+  
     for (i in seq_len(m2 - 1)) {
-        for (j in seq(i + 1, m2)) {
-
-            Interin1 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[i]), 1]
-            Interin2 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[j]), 1]
-
-            M1 <- length(Interin1)
-            M2 <- length(Interin2)
-            M3 <- length(intersect(Interin1, Interin2))
-            M4 <- length(miRSym)
-            M5 <- 1 - phyper(M3 - 1, M2, M4 - M2, M1)
-
-            if (M3 >= minSharedmiR & M5 < padjustvaluecutoff) {
-
-                ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- targetSym[i]
-                ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- targetSym[j]
-
-                tarExpIdx1 <- which(ExpDataNames %in% targetSym[i])
-                tarExpIdx2 <- which(ExpDataNames %in% targetSym[j])
-                miRExpIdx <- which(ExpDataNames %in% intersect(Interin1, Interin2))
-
-                # Calculate sensitivity partial pearson correlation of each RNA-RNA pair
-                M6 <- cor.test(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2])$estimate
-                M7 <- cor.test(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2])$p.value
-                M8 <- M6 - corpcor::pcor.shrink(cbind(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2],
-                  ExpData[, miRExpIdx]), verbose = FALSE)[1, 2]
-
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- M3
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- M5
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 3] <- M6
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 4] <- M7
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 5] <- M8
-            }
+      for (j in seq(i + 1, m2)) {
+      
+        Interin1 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[i]), 1]
+        Interin2 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[j]), 1]
+      
+        M1 <- length(Interin1)
+        M2 <- length(Interin2)
+        M3 <- length(intersect(Interin1, Interin2))
+        M4 <- length(miRSym)
+        M5 <- 1 - phyper(M3 - 1, M2, M4 - M2, M1)
+      
+        if (M3 >= minSharedmiR & M5 < padjustvaluecutoff) {
+        
+          ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- targetSym[i]
+          ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- targetSym[j]
+        
+          tarExpIdx1 <- which(ExpDataNames %in% targetSym[i])
+          tarExpIdx2 <- which(ExpDataNames %in% targetSym[j])
+          miRExpIdx <- which(ExpDataNames %in% intersect(Interin1, Interin2))
+        
+          # Calculate sensitivity correlation of each RNA-RNA pair
+          M6 <- cor.test(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2])$estimate
+          M7 <- cor.test(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2])$p.value
+          M8 <- M6 - corpcor::pcor.shrink(cbind(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2],
+                                                ExpData[, miRExpIdx]), verbose = FALSE)[1, 2]
+        
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- M3
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- M5
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 3] <- M6
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 4] <- M7
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 5] <- M8
         }
+      }
     }
-
+  
     # Extract RNA-RNA pairs with sensitivity correlation more than senscorcutoff.
-    ceRInt <- ceRInt[which((p.adjust(C[, 2], method = padjustmethod) < padjustvaluecutoff & C[,
-        3] > poscorcutoff & p.adjust(C[, 4], method = padjustmethod) < padjustvaluecutoff & C[,
-        5] > senscorcutoff) == "TRUE"), ]
-
-    C <- C[which((p.adjust(C[, 2], method = padjustmethod) < padjustvaluecutoff & C[, 3] > poscorcutoff &
-        p.adjust(C[, 4], method = padjustmethod) < padjustvaluecutoff & C[, 5] > senscorcutoff) ==
-        "TRUE"), ]
-
+    C[, 2] <- p.adjust(C[, 2], method = padjustmethod)
+    C[, 4] <- p.adjust(C[, 4], method = padjustmethod)
+    index <- which(C[, 2] < padjustvaluecutoff & C[, 3] > poscorcutoff & C[, 4] < padjustvaluecutoff &
+                  C[, 5] > senscorcutoff)
+  
+    ceRInt <- ceRInt[index, ]
+    C <- C[index, ]
+  
     if (is.vector(C)) {
-        SPPCceRInt <- c(ceRInt, C)
-        names(SPPCceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
-            "correlation", "p.adjusted_value of positive correlation", "sensitivity partial pearson correlation")
+      SPPCceRInt <- c(ceRInt, C)
+      names(SPPCceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
+                             "correlation", "p.adjusted_value of positive correlation", "sensitivity correlation")
     } else {
-        SPPCceRInt <- cbind(ceRInt, C)
-        colnames(SPPCceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
-            "correlation", "p.adjusted_value of positive correlation", "sensitivity partial pearson correlation")
+      SPPCceRInt <- cbind(ceRInt, C)
+      colnames(SPPCceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
+                                "correlation", "p.adjusted_value of positive correlation", "sensitivity correlation")
     }
-
+  
     return(SPPCceRInt)
 }
 
 ## 4. Partial Pearson Correlation (PPC) method
 ppc <- function(miRTarget, ExpData, minSharedmiR = 3, num_perm = 100, padjustvaluecutoff = 0.01,
-    padjustmethod = "BH") {
-
+                padjustmethod = "BH") {
+  
     miRTargetCandidate <- querymiRTargetbinding(ExpData, miRTarget)
     miRTargetCandidate <- as.matrix(miRTargetCandidate)
     m1 <- nrow(miRTargetCandidate)
     n1 <- ncol(miRTargetCandidate)
-
+  
     ExpDataNames <- c(as.matrix(ExpData[1, ]))
     ExpData <- unfactor(ExpData[-1, ])
     colnames(ExpData) <- ExpDataNames
-
+  
     miR <- miRTargetCandidate[, 1]
     tar <- miRTargetCandidate[, 2]
-
+  
     miRSym <- unique(miR)
     targetSym <- unique(tar)
-
+  
     m2 <- length(targetSym)
-
+  
     # Initialize variables
     ceRInt <- matrix(NA, m2 * (m2 - 1)/2, 2)
     C <- matrix(NA, m2 * (m2 - 1)/2, 3)
-
+  
     for (i in seq_len(m2 - 1)) {
-        for (j in seq(i + 1, m2)) {
-
-            Interin1 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[i]), 1]
-            Interin2 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[j]), 1]
-            miRExpIdx <- which(ExpDataNames %in% intersect(Interin1, Interin2))
-
-            M1 <- length(Interin1)
-            M2 <- length(Interin2)
-            M3 <- length(intersect(Interin1, Interin2))
-            M4 <- length(miRSym)
-            M5 <- 1 - phyper(M3 - 1, M2, M4 - M2, M1)
-
-            if (M3 >= minSharedmiR & M5 < padjustvaluecutoff) {
-
-                ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- targetSym[i]
-                ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- targetSym[j]
-
-                tarExpIdx1 <- which(ExpDataNames %in% targetSym[i])
-                tarExpIdx2 <- which(ExpDataNames %in% targetSym[j])
-
-                inputdata <- t(cbind(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2], ExpData[, miRExpIdx]))
-
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- M3
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- M5
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 3] <- predCor(inputdata, num_perm, method = "PPC")
-
-            }
+      for (j in seq(i + 1, m2)) {
+      
+        Interin1 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[i]), 1]
+        Interin2 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[j]), 1]
+        miRExpIdx <- which(ExpDataNames %in% intersect(Interin1, Interin2))
+      
+        M1 <- length(Interin1)
+        M2 <- length(Interin2)
+        M3 <- length(intersect(Interin1, Interin2))
+        M4 <- length(miRSym)
+        M5 <- 1 - phyper(M3 - 1, M2, M4 - M2, M1)
+      
+        if (M3 >= minSharedmiR & M5 < padjustvaluecutoff) {
+        
+          ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- targetSym[i]
+          ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- targetSym[j]
+        
+          tarExpIdx1 <- which(ExpDataNames %in% targetSym[i])
+          tarExpIdx2 <- which(ExpDataNames %in% targetSym[j])
+        
+          inputdata <- t(cbind(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2], ExpData[, miRExpIdx]))
+        
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- M3
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- M5
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 3] <- predCor(inputdata, num_perm, method = "PPC")
+        
         }
+      }
     }
-
+  
     # Extract significant RNA-RNA pairs.
-    ceRInt <- ceRInt[which((p.adjust(C[, 2], method = padjustmethod) < padjustvaluecutoff & p.adjust(C[,
-        3], method = padjustmethod) < padjustvaluecutoff) == "TRUE"), ]
-
-    C <- C[which((p.adjust(C[, 2], method = padjustmethod) < padjustvaluecutoff & p.adjust(C[, 3],
-        method = padjustmethod) < padjustvaluecutoff) == "TRUE"), ]
-
+    C[, 2] <- p.adjust(C[, 2], method = padjustmethod)
+    C[, 3] <- p.adjust(C[, 3], method = padjustmethod)
+    index <- which(C[, 2] < padjustvaluecutoff & C[, 3] < padjustvaluecutoff)
+  
+    ceRInt <- ceRInt[index, ]
+    C <- C[index, ]
+  
     if (is.vector(C)) {
-        PPCceRInt <- c(ceRInt, C)
-        names(PPCceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
-            "p.adjusted_value of RNA competition")
-
+      PPCceRInt <- c(ceRInt, C)
+      names(PPCceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
+                            "p.adjusted_value of RNA competition")
+    
     } else {
-        PPCceRInt <- cbind(ceRInt, C)
-        colnames(PPCceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
-            "p.adjusted_value of RNA competition")
+      PPCceRInt <- cbind(ceRInt, C)
+      colnames(PPCceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
+                               "p.adjusted_value of RNA competition")
     }
-
+  
     return(PPCceRInt)
 }
 
 ## 5. Hermes method
 hermes <- function(miRTarget, ExpData, minSharedmiR = 3, num_perm = 100, padjustvaluecutoff = 0.01,
-    padjustmethod = "BH") {
-
+                   padjustmethod = "BH") {
+  
     miRTargetCandidate <- querymiRTargetbinding(ExpData, miRTarget)
     miRTargetCandidate <- as.matrix(miRTargetCandidate)
     m1 <- nrow(miRTargetCandidate)
     n1 <- ncol(miRTargetCandidate)
-
+  
     ExpDataNames <- c(as.matrix(ExpData[1, ]))
     ExpData <- unfactor(ExpData[-1, ])    
     colnames(ExpData) <- ExpDataNames
-
+  
     miR <- miRTargetCandidate[, 1]
     tar <- miRTargetCandidate[, 2]
-
+  
     miRSym <- unique(miR)
     targetSym <- unique(tar)
-
+  
     m2 <- length(targetSym)
-
+  
     # Initialize variables
     ceRInt <- matrix(NA, m2 * (m2 - 1)/2, 2)
     C <- matrix(NA, m2 * (m2 - 1)/2, 3)
-
+  
     for (i in seq_len(m2 - 1)) {
-        for (j in seq(i + 1, m2)) {
-
-            Interin1 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[i]), 1]
-            Interin2 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[j]), 1]
-            miRExpIdx <- which(ExpDataNames %in% intersect(Interin1, Interin2))
-
-            M1 <- length(Interin1)
-            M2 <- length(Interin2)
-            M3 <- length(intersect(Interin1, Interin2))
-            M4 <- length(miRSym)
-            M5 <- 1 - phyper(M3 - 1, M2, M4 - M2, M1)
-
-            if (M3 >= minSharedmiR & M5 < padjustvaluecutoff) {
-
-                ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- targetSym[i]
-                ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- targetSym[j]
-
-                tarExpIdx1 <- which(ExpDataNames %in% targetSym[i])
-                tarExpIdx2 <- which(ExpDataNames %in% targetSym[j])
-
-                inputdata <- t(cbind(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2], ExpData[, miRExpIdx]))
-
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- M3
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- M5
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 3] <- predCor(inputdata, num_perm, method = "CMI")
-            }
+      for (j in seq(i + 1, m2)) {
+      
+        Interin1 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[i]), 1]
+        Interin2 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[j]), 1]
+        miRExpIdx <- which(ExpDataNames %in% intersect(Interin1, Interin2))
+      
+        M1 <- length(Interin1)
+        M2 <- length(Interin2)
+        M3 <- length(intersect(Interin1, Interin2))
+        M4 <- length(miRSym)
+        M5 <- 1 - phyper(M3 - 1, M2, M4 - M2, M1)
+      
+        if (M3 >= minSharedmiR & M5 < padjustvaluecutoff) {
+        
+          ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- targetSym[i]
+          ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- targetSym[j]
+        
+          tarExpIdx1 <- which(ExpDataNames %in% targetSym[i])
+          tarExpIdx2 <- which(ExpDataNames %in% targetSym[j])
+        
+          inputdata <- t(cbind(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2], ExpData[, miRExpIdx]))
+        
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- M3
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- M5
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 3] <- predCor(inputdata, num_perm, method = "CMI")
         }
+      }
     }
-
+  
     # Extract significant RNA-RNA pairs.
-    ceRInt <- ceRInt[which((p.adjust(C[, 2], method = padjustmethod) < padjustvaluecutoff & p.adjust(C[,
-        3], method = padjustmethod) < padjustvaluecutoff) == "TRUE"), ]
-
-    C <- C[which((p.adjust(C[, 2], method = padjustmethod) < padjustvaluecutoff & p.adjust(C[, 3],
-        method = padjustmethod) < padjustvaluecutoff) == "TRUE"), ]
-
+    C[, 2] <- p.adjust(C[, 2], method = padjustmethod)
+    C[, 3] <- p.adjust(C[, 3], method = padjustmethod)
+    index <- which(C[, 2] < padjustvaluecutoff & C[, 3] < padjustvaluecutoff)
+  
+    ceRInt <- ceRInt[index, ]
+    C <- C[index, ]
+  
     if (is.vector(C)) {
-        HermesceRInt <- c(ceRInt, C)
-        names(HermesceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
-            "p.adjusted_value of RNA competition")
+      HermesceRInt <- c(ceRInt, C)
+      names(HermesceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
+                               "p.adjusted_value of RNA competition")
     } else {
-        HermesceRInt <- cbind(ceRInt, C)
-        colnames(HermesceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
-            "p.adjusted_value of RNA competition")
+      HermesceRInt <- cbind(ceRInt, C)
+      colnames(HermesceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
+                                  "p.adjusted_value of RNA competition")
     }
-
+  
     return(HermesceRInt)
 }
 
 ## 6. MuTaME method
 muTaME <- function(miRTarget, mres, minSharedmiR = 3, padjustvaluecutoff = 0.01, padjustmethod = "BH",
-    scorecutoff = 0.5) {
-
+                   scorecutoff = 0.5) {
+  
     miRTarget <- as.matrix(miRTarget)
     m1 <- nrow(miRTarget)
     n1 <- ncol(miRTarget)
-
+  
     miR <- miRTarget[, 1]
     tar <- miRTarget[, 2]
-
+  
     miRSym <- unique(miR)
     targetSym <- unique(tar)
-
+  
     m2 <- length(targetSym)
-
+  
     # Initialize variables
     ceRInt <- matrix(NA, m2 * (m2 - 1)/2, 2)
     C <- matrix(NA, m2 * (m2 - 1)/2, 8)
-
+  
     for (i in seq_len(m2 - 1)) {
-        for (j in seq(i + 1, m2)) {
-
-            Interin1 <- miRTarget[which(miRTarget[, 2] %in% targetSym[i]), 1]
-            Interin2 <- miRTarget[which(miRTarget[, 2] %in% targetSym[j]), 1]
-            cm <- intersect(Interin1, Interin2)
-            SharedMREs <- mres[mres[, 2] %in% c(targetSym[i], targetSym[j]) & mres[, 1] %in% cm, ]
-
-            M1 <- length(Interin1)
-            M2 <- length(Interin2)
-            M3 <- length(intersect(Interin1, Interin2))
-            M4 <- length(miRSym)
-            M5 <- 1 - phyper(M3 - 1, M2, M4 - M2, M1)
-
-            if (M3 >= minSharedmiR & M5 < padjustvaluecutoff & nrow(SharedMREs) > 0) {
-
-                ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- targetSym[i]
-                ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- targetSym[j]
-
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- M3
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- M5
-
-                # Score 1 for the fraction of coomon miRNAs
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 3] <- log(M3/min(M1, M2))
-
-                # Score 2 for the density of the MREs for all shared miRNAs
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 4] <- sum(sapply(cm, function(miR) {
-                  MREs <- SharedMREs[SharedMREs[, 1] == miR, ]
-                  if (nrow(MREs) <= 0) return(1)
-                  MREslr <- MREs[, c("gap_l", "gap_r")]
-                  D <- abs(max(MREslr[, 1]) - min(MREslr[, 2]))
-                  return(log(nrow(MREs)/D))
-                }))
-
-                # Score 3 for the distribution of MREs of the putative RNA-RNA pairs
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 5] <- sum(sapply(cm, function(miR) {
-                  positions <- SharedMREs[SharedMREs[, 1] == miR, c("gap_l", "gap_r")]
-                  if (nrow(positions) <= 0) return(1)
-                  return(log(abs(max(positions[, 1]) - min(positions[, 2]))^2/sum((positions[, 2] -
-                    positions[, 1])^2)))
-                }))
-
-                # Score 4 for the relation between the overall number of MREs for a putative miRNA sponge,
-                # compared with the number of miRNAs that yield these MREs
-                B <- nrow(SharedMREs)
-                if (B == length(unique(SharedMREs[, 1]))) {
-                  C[(i - 1) * m2 + j - sum(seq_len(i)), 6] <- log(1/B)
-                } else {
-                  C[(i - 1) * m2 + j - sum(seq_len(i)), 6] <- log((B - length(unique(SharedMREs[,
-                    1])) - 1)/B)
-                }
-
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 7] <- C[(i - 1) * m2 + j - sum(seq_len(i)),
-                  3] + C[(i - 1) * m2 + j - sum(seq_len(i)), 4] + C[(i - 1) * m2 + j - sum(seq_len(i)),
-                  5] + C[(i - 1) * m2 + j - sum(seq_len(i)), 6]
-            }
+      for (j in seq(i + 1, m2)) {
+      
+        Interin1 <- miRTarget[which(miRTarget[, 2] %in% targetSym[i]), 1]
+        Interin2 <- miRTarget[which(miRTarget[, 2] %in% targetSym[j]), 1]
+        cm <- intersect(Interin1, Interin2)
+        SharedMREs <- mres[mres[, 2] %in% c(targetSym[i], targetSym[j]) & mres[, 1] %in% cm, ]
+      
+        M1 <- length(Interin1)
+        M2 <- length(Interin2)
+        M3 <- length(intersect(Interin1, Interin2))
+        M4 <- length(miRSym)
+        M5 <- 1 - phyper(M3 - 1, M2, M4 - M2, M1)
+      
+        if (M3 >= minSharedmiR & M5 < padjustvaluecutoff & nrow(SharedMREs) > 0) {
+        
+          ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- targetSym[i]
+          ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- targetSym[j]
+        
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- M3
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- M5
+        
+          # Score 1 for the fraction of coomon miRNAs
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 3] <- log(M3/min(M1, M2))
+        
+          # Score 2 for the density of the MREs for all shared miRNAs
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 4] <- sum(sapply(cm, function(miR) {
+            MREs <- SharedMREs[SharedMREs[, 1] == miR, ]
+            if (nrow(MREs) <= 0) return(1)
+            MREslr <- MREs[, c("gap_l", "gap_r")]
+            D <- abs(max(MREslr[, 1]) - min(MREslr[, 2]))
+            return(log(nrow(MREs)/D))
+          }))
+        
+          # Score 3 for the distribution of MREs of the putative RNA-RNA pairs
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 5] <- sum(sapply(cm, function(miR) {
+            positions <- SharedMREs[SharedMREs[, 1] == miR, c("gap_l", "gap_r")]
+            if (nrow(positions) <= 0) return(1)
+            return(log(abs(max(positions[, 1]) - min(positions[, 2]))^2/sum((positions[, 2] -
+                                                                             positions[, 1])^2)))
+          }))
+        
+          # Score 4 for the relation between the overall number of MREs for a putative miRNA sponge,
+          # compared with the number of miRNAs that yield these MREs
+          B <- nrow(SharedMREs)
+          if (B == length(unique(SharedMREs[, 1]))) {
+            C[(i - 1) * m2 + j - sum(seq_len(i)), 6] <- log(1/B)
+          } else {
+            C[(i - 1) * m2 + j - sum(seq_len(i)), 6] <- log((B - length(unique(SharedMREs[,
+                                                                                        1])) - 1)/B)
+          }
+        
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 7] <- C[(i - 1) * m2 + j - sum(seq_len(i)),
+                                                        3] + C[(i - 1) * m2 + j - sum(seq_len(i)), 4] + C[(i - 1) * m2 + j - sum(seq_len(i)),
+                                                                                                        5] + C[(i - 1) * m2 + j - sum(seq_len(i)), 6]
         }
+      }
     }
-
+  
     # Extract RNA-RNA pair based on four scores.
     ceRInt <- ceRInt[apply(ceRInt, 1, function(x) !all(is.na(x))), ]
     C <- C[apply(C, 1, function(x) !all(is.na(x))), ]
     C[, 8] <- (C[, 7] - min(C[, 7]))/(max(C[, 7]) - min(C[, 7]))
-
-    ceRInt <- ceRInt[which((p.adjust(C[, 2], method = padjustmethod) < padjustvaluecutoff & C[,
-        8] > scorecutoff) == "TRUE"), ]
-
-    C <- C[which((p.adjust(C[, 2], method = padjustmethod) < padjustvaluecutoff & C[, 8] > scorecutoff) ==
-        "TRUE"), ]
-
+  
+    C[, 2] <- p.adjust(C[, 2], method = padjustmethod)
+    index <- which(C[, 2] < padjustvaluecutoff & C[, 8] > scorecutoff)
+  
+    ceRInt <- ceRInt[index, ]
+    C <- C[index, ]
+  
     if (is.vector(C)) {
-        MuTaMEceRInt <- c(ceRInt, C)
-        names(MuTaMEceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
-            "Score 1", "Score 2", "Score 3", "Score 4", "Combined score", "Normalized score")
+      MuTaMEceRInt <- c(ceRInt, C)
+      names(MuTaMEceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
+                               "Score 1", "Score 2", "Score 3", "Score 4", "Combined score", "Normalized score")
     } else {
-        MuTaMEceRInt <- cbind(ceRInt, C)
-        colnames(MuTaMEceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
-            "Score 1", "Score 2", "Score 3", "Score 4", "Combined score", "Normalized score")
+      MuTaMEceRInt <- cbind(ceRInt, C)
+      colnames(MuTaMEceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
+                                  "Score 1", "Score 2", "Score 3", "Score 4", "Combined score", "Normalized score")
     }
     return(MuTaMEceRInt)
 }
 
 ## 7. CERNIA method
 cernia <- function(miRTarget, ExpData, mres, minSharedmiR = 3, poscorcutoff = 0, padjustvaluecutoff = 0.01,
-    padjustmethod = "BH", scorecutoff = 0.5) {
-
+                   padjustmethod = "BH", scorecutoff = 0.5) {
+  
     miRTargetCandidate <- querymiRTargetbinding(ExpData, miRTarget)
     miRTargetCandidate <- as.matrix(miRTargetCandidate)
     m1 <- nrow(miRTargetCandidate)
     n1 <- ncol(miRTargetCandidate)
-
+  
     ExpDataNames <- c(as.matrix(ExpData[1, ]))
     ExpData <- unfactor(ExpData[-1, ])    
     colnames(ExpData) <- ExpDataNames
-
+  
     miR <- miRTargetCandidate[, 1]
     tar <- miRTargetCandidate[, 2]
-
+  
     miRSym <- unique(miR)
     targetSym <- unique(tar)
-
+  
     m2 <- length(targetSym)
-
+  
     # Initialize variables
     ceRInt <- matrix(NA, m2 * (m2 - 1)/2, 2)
     C <- matrix(NA, m2 * (m2 - 1)/2, 11)
-
+  
     for (i in seq_len(m2 - 1)) {
-        for (j in seq(i + 1, m2)) {
-
-            Interin1 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[i]), 1]
-            Interin2 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[j]), 1]
-            cm <- intersect(Interin1, Interin2)
-            SharedMREs <- mres[mres[, 2] %in% c(targetSym[i], targetSym[j]) & mres[, 1] %in% cm, ]
-
-            M1 <- length(Interin1)
-            M2 <- length(Interin2)
-            M3 <- length(intersect(Interin1, Interin2))
-            M4 <- length(miRSym)
-            M5 <- 1 - phyper(M3 - 1, M2, M4 - M2, M1)
-
-            tarExpIdx1 <- which(ExpDataNames %in% targetSym[i])
-            tarExpIdx2 <- which(ExpDataNames %in% targetSym[j])
-
-            M6 <- cor.test(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2])$estimate
-
-            if (M3 >= minSharedmiR & M5 < padjustvaluecutoff & M6 > poscorcutoff &
-                nrow(SharedMREs) > 0) {
-
-                ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- targetSym[i]
-                ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- targetSym[j]
-
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- M3
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- M5
-
-                # Score 1 for the fraction of coomon miRNAs
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 3] <- log(M3/min(M1, M2))
-
-                # Score 2 for the density of the MREs for all shared miRNAs
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 4] <- sum(sapply(cm, function(miR) {
-                  MREs <- SharedMREs[SharedMREs[, 1] == miR, ]
-                  if (nrow(MREs) <= 0) return(1)
-                  MREslr <- MREs[, c("gap_l", "gap_r")]
-                  D <- abs(max(MREslr[, 1]) - min(MREslr[, 2]))
-                  return(log(nrow(MREs)/D))
-                }))
-
-                # Score 3 for the distribution of MREs of the putative RNA-RNA pairs
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 5] = sum(sapply(cm, function(miR) {
-                  positions <- SharedMREs[SharedMREs[, 1] == miR, c("gap_l", "gap_r")]
-                  if (nrow(positions) <= 0) return(1)
-                  return(log(abs(max(positions[, 1]) - min(positions[, 2]))^2/sum((positions[, 2] -
-                    positions[, 1])^2)))
-                }))
-
-                # Score 4 for the relation between the overall number of MREs for a putative miRNA sponge,
-                # compared with the number of miRNAs that yield these MREs
-                B <- nrow(SharedMREs)
-                if (B == length(unique(SharedMREs[, 1]))) {
-                  C[(i - 1) * m2 + j - sum(seq_len(i)), 6] <- log(1/B)
-                } else {
-                  C[(i - 1) * m2 + j - sum(seq_len(i)), 6] <- log((B - length(unique(SharedMREs[,
-                    1])) - 1)/B)
-                }
-
-                # Score 5 for the density of the hybridization energies related to MREs for all shared miRNAs
-                SharedMREs <- mres[mres[, 2] %in% c(targetSym[i], targetSym[j]) & mres[, 1] %in%
-                  cm, ]
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 7] <- sum(sapply(cm, function(miR) {
-                  MREs <- SharedMREs[SharedMREs[, 1] == miR, ]
-                  if (nrow(MREs) <= 0) return(1)
-                  MREslr <- MREs[, c("gap_l", "gap_r")]
-                  D <- abs(max(MREslr[, 1]) - min(MREslr[, 2]))
-                  return(log(sum(abs(MREs[, 3]))/D))
-                }))
-
-                # Score 6 for the DT-Hybrid recommendation scores
-                cerna_recommendations <- dtHybrid(miRTargetCandidate)
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 8] <- cerna_recommendations[targetSym[i],
-                  targetSym[j]]
-
-                # Score 7 for the pairwise Peason correlation between putative RNA-RNA pair expression data
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 9] <- log(M6)
-
-                C[(i - 1) * m2 + j - sum(seq_len(i)), 10] <- C[(i - 1) * m2 + j - sum(seq_len(i)),
-                  3] + C[(i - 1) * m2 + j - sum(seq_len(i)), 4] + C[(i - 1) * m2 + j - sum(seq_len(i)),
-                  5] + C[(i - 1) * m2 + j - sum(seq_len(i)), 6] + C[(i - 1) * m2 + j - sum(seq_len(i)),
-                  7] + C[(i - 1) * m2 + j - sum(seq_len(i)), 8] + C[(i - 1) * m2 + j - sum(seq_len(i)),
-                  9]
-            }
+      for (j in seq(i + 1, m2)) {
+      
+        Interin1 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[i]), 1]
+        Interin2 <- miRTargetCandidate[which(miRTargetCandidate[, 2] %in% targetSym[j]), 1]
+        cm <- intersect(Interin1, Interin2)
+        SharedMREs <- mres[mres[, 2] %in% c(targetSym[i], targetSym[j]) & mres[, 1] %in% cm, ]
+      
+        M1 <- length(Interin1)
+        M2 <- length(Interin2)
+        M3 <- length(intersect(Interin1, Interin2))
+        M4 <- length(miRSym)
+        M5 <- 1 - phyper(M3 - 1, M2, M4 - M2, M1)
+      
+        tarExpIdx1 <- which(ExpDataNames %in% targetSym[i])
+        tarExpIdx2 <- which(ExpDataNames %in% targetSym[j])
+      
+        M6 <- cor.test(ExpData[, tarExpIdx1], ExpData[, tarExpIdx2])$estimate
+      
+        if (M3 >= minSharedmiR & M5 < padjustvaluecutoff & M6 > poscorcutoff &
+            nrow(SharedMREs) > 0) {
+        
+          ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- targetSym[i]
+          ceRInt[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- targetSym[j]
+        
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 1] <- M3
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 2] <- M5
+        
+          # Score 1 for the fraction of coomon miRNAs
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 3] <- log(M3/min(M1, M2))
+        
+          # Score 2 for the density of the MREs for all shared miRNAs
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 4] <- sum(sapply(cm, function(miR) {
+            MREs <- SharedMREs[SharedMREs[, 1] == miR, ]
+            if (nrow(MREs) <= 0) return(1)
+            MREslr <- MREs[, c("gap_l", "gap_r")]
+            D <- abs(max(MREslr[, 1]) - min(MREslr[, 2]))
+            return(log(nrow(MREs)/D))
+          }))
+        
+          # Score 3 for the distribution of MREs of the putative RNA-RNA pairs
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 5] = sum(sapply(cm, function(miR) {
+            positions <- SharedMREs[SharedMREs[, 1] == miR, c("gap_l", "gap_r")]
+            if (nrow(positions) <= 0) return(1)
+            return(log(abs(max(positions[, 1]) - min(positions[, 2]))^2/sum((positions[, 2] -
+                                                                             positions[, 1])^2)))
+          }))
+        
+          # Score 4 for the relation between the overall number of MREs for a putative miRNA sponge,
+          # compared with the number of miRNAs that yield these MREs
+          B <- nrow(SharedMREs)
+          if (B == length(unique(SharedMREs[, 1]))) {
+            C[(i - 1) * m2 + j - sum(seq_len(i)), 6] <- log(1/B)
+          } else {
+            C[(i - 1) * m2 + j - sum(seq_len(i)), 6] <- log((B - length(unique(SharedMREs[,
+                                                                                        1])) - 1)/B)
+          }
+        
+          # Score 5 for the density of the hybridization energies related to MREs for all shared miRNAs
+          SharedMREs <- mres[mres[, 2] %in% c(targetSym[i], targetSym[j]) & mres[, 1] %in%
+                             cm, ]
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 7] <- sum(sapply(cm, function(miR) {
+            MREs <- SharedMREs[SharedMREs[, 1] == miR, ]
+            if (nrow(MREs) <= 0) return(1)
+            MREslr <- MREs[, c("gap_l", "gap_r")]
+            D <- abs(max(MREslr[, 1]) - min(MREslr[, 2]))
+            return(log(sum(abs(MREs[, 3]))/D))
+          }))
+        
+          # Score 6 for the DT-Hybrid recommendation scores
+          cerna_recommendations <- dtHybrid(miRTargetCandidate)
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 8] <- cerna_recommendations[targetSym[i],
+                                                                          targetSym[j]]
+        
+          # Score 7 for the pairwise Peason correlation between putative RNA-RNA pair expression data
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 9] <- log(M6)
+        
+          C[(i - 1) * m2 + j - sum(seq_len(i)), 10] <- C[(i - 1) * m2 + j - sum(seq_len(i)),
+                                                         3] + C[(i - 1) * m2 + j - sum(seq_len(i)), 4] + C[(i - 1) * m2 + j - sum(seq_len(i)),
+                                                                                                         5] + C[(i - 1) * m2 + j - sum(seq_len(i)), 6] + C[(i - 1) * m2 + j - sum(seq_len(i)),
+                                                                                                                                                           7] + C[(i - 1) * m2 + j - sum(seq_len(i)), 8] + C[(i - 1) * m2 + j - sum(seq_len(i)),
+                                                                                                                                                                                                             9]
         }
+      }
     }
-
+  
     # Extract RNA-RNA pair based on seven scores
     ceRInt <- ceRInt[apply(ceRInt, 1, function(x) !all(is.na(x))), ]
     C <- C[apply(C, 1, function(x) !all(is.na(x))), ]
     C[, 11] <- (C[, 10] - min(C[, 10]))/(max(C[, 10]) - min(C[, 10]))
-
-    ceRInt <- ceRInt[which((p.adjust(C[, 2], method = padjustmethod) < padjustvaluecutoff & C[,
-        11] > scorecutoff) == "TRUE"), ]
-
-    C <- C[which((p.adjust(C[, 2], method = padjustmethod) < padjustvaluecutoff & C[, 11] > scorecutoff) ==
-        "TRUE"), ]
-
+  
+    C[, 2] <- p.adjust(C[, 2], method = padjustmethod)
+    index <- which(C[, 2] < padjustvaluecutoff & C[, 11] > scorecutoff)
+  
+    ceRInt <- ceRInt[index, ]
+    C <- C[index, ]
+  
     if (is.vector(C)) {
-        CERNIAceRInt <- c(ceRInt, C)
-        names(CERNIAceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
-            "Score 1", "Score 2", "Score 3", "Score 4", "Score 5", "Score 6", "Score 7", "Combined score",
-            "Normalized score")
+      CERNIAceRInt <- c(ceRInt, C)
+      names(CERNIAceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
+                               "Score 1", "Score 2", "Score 3", "Score 4", "Score 5", "Score 6", "Score 7", "Combined score",
+                               "Normalized score")
     } else {
-        CERNIAceRInt <- cbind(ceRInt, C)
-        colnames(CERNIAceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
-            "Score 1", "Score 2", "Score 3", "Score 4", "Score 5", "Score 6", "Score 7", "Combined score",
-            "Normalized score")
+      CERNIAceRInt <- cbind(ceRInt, C)
+      colnames(CERNIAceRInt) <- c("sponge_1", "sponge_2", "#shared miRNAs", "p.adjusted_value of shared miRNAs",
+                                  "Score 1", "Score 2", "Score 3", "Score 4", "Score 5", "Score 6", "Score 7", "Combined score",
+                                  "Normalized score")
     }
-
+  
     return(CERNIAceRInt)
-
+  
 }
 
 ## 8. Integrate method for miRNA sponge interactions by integrating different methods.
